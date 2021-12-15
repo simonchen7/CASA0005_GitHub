@@ -9,9 +9,13 @@ library(tidyverse)
 library(sf)
 library(tmap)
 library(janitor)
+library(broom)
+library(sp)
+library(spdep)
 
 graffiti <- read_csv(here("Practice Exam Q", "Graffiti.csv"))
-sanfran 
+sanfranshape <- read_sf(here::here("Practice Exam Q", "Census 2010_ Tracts for San Francisco", "geo_export_ce2f7637-eaaf-41cc-87f7-2df773f71874.shp")) %>%
+  st_transform(., crs = 7131)
 
 
 
