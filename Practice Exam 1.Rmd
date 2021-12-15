@@ -1,0 +1,20 @@
+---
+title: "Practice Exam 1"
+output: html_document
+---
+```{r}
+library(raster)
+library(here)
+library(tidyverse)
+library(sf)
+library(tmap)
+library(janitor)
+
+graffiti <- read_csv(here("Practice Exam Q", "Graffiti.csv"))
+sanfran 
+
+
+
+```
+
+
