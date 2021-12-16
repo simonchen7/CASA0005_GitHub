@@ -1,0 +1,42 @@
+---
+title: "Name: Simon Chen"
+author: 
+- |
+    | Student number: 17016335
+date: "`r format(Sys.time(), '%X, %d %B, %Y')`"
+output: html_document
+---
+# Originality declaration  
+
+I, [Simon Tianzuo Chen], confirm that the work presented in this assessment is my own. Where information has been derived from other sources, I confirm that this has been indicated in the work.
+
+date: `r format(Sys.time(), '%d %B, %Y')`
+
+# Start your response here
+
+
+## Initial project scope
+
+The following data is collected from The City of New York's Open Data hub for the purpose of analysing and understanding the possible factors that impact the likelihood of eviction. 
+
+To perform these analysis, appropriate data processing and analysis methods will be utilised, with an overview report being prepared that will showcase some of the patterns that arise from our analysis. 
+
+To begin, we will install some packages that will be useful for our analysis
+```{r}
+# Installing Packages
+library(sf)
+library(tmap)
+library(sp)
+library(tmaptools)
+library(tidyverse)
+library(janitor)
+library(here)
+```
+
+From there, we'll load in our datafiles, a shapefile of New York and eviction data
+```{r}
+# load in the data 
+NYC <- read_sf(here::here("Community Districts", "geo_export_e06d52f8-300a-4a76-9d41-23cdb61499cb.shp"))
+evictions <- read_csv(here::here("Evictions.csv"))
+qtm(NYC)
+```

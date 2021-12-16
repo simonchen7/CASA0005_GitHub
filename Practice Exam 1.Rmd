@@ -40,7 +40,29 @@ graffiti4 <- graffiti3 %>%
 # filter data to make sure it falls within shapefile boundaries
 graffiti_within <- graffiti4[sanfranshape, , op = st_intersects]
 
-
+# produce a basic plot of our data
+tmap_mode("plot")
+tm_shape(sanfranshape) +
+  tm_polygons(col = NA, alpha = 0.5) +
+tm_shape(graffiti4) +
+  tm_dots(col = "blue")
 ```
 
+```{r}
+# merge the data 
+sfgraffiti <- sanfranshape%>%
+  st_join(graffiti4)%>%
+  add_count(geoid10)%>%    
+  janitor::clean_names()%>%
+  #calculate area
+  mutate(area=st_area(.))%>%
+  #then density of the points per ward
+  mutate(density=n/area)%>%
+  dplyr::select(geoid10 , neighborhood, density)%>%
+  group_by(geoid10) %>%         
+summarise(geoid10 = first(geoid10),
+          neighborhood= first(neighborhood),
+          density= first(density))
+```
 
+Having loaded in our data and cleaned it, we can now perform our analysis 
