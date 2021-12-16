@@ -3,6 +3,7 @@ title: "Practice Exam 1"
 output: html_document
 ---
 ```{r}
+# install libraries 
 library(raster)
 library(here)
 library(tidyverse)
@@ -13,10 +14,31 @@ library(broom)
 library(sp)
 library(spdep)
 
+# load data 
 graffiti <- read_csv(here("Practice Exam Q", "Graffiti.csv"))
 sanfranshape <- read_sf(here::here("Practice Exam Q", "Census 2010_ Tracts for San Francisco", "geo_export_ce2f7637-eaaf-41cc-87f7-2df773f71874.shp")) %>%
+  st_transform(., crs = 7131) # transforming into a projected CRS
+
+# separate the grafitti points into two columbs for latitude and longitude 
+graffiti2<-graffiti%>%
+  separate(., Point, c("A", "B"), sep = ",")
+
+graffiti2$A<-parse_number(graffiti2$A) # removes any non-numeric characters, and returns a numeric value
+graffiti2$B<-parse_number(graffiti2$B)
+
+# changing csv into shapefile
+graffiti3 <- graffiti2 %>%
+  filter(A != 0) %>%
+  filter(B != 0) %>%
+  st_as_sf(., coords = c("B", "A"),
+           crs = 4326)
+
+graffiti4 <- graffiti3 %>%
+  filter(str_detect(Closed, "2019")) %>% 
   st_transform(., crs = 7131)
 
+# filter data to make sure it falls within shapefile boundaries
+graffiti_within <- graffiti4[sanfranshape, , op = st_intersects]
 
 
 ```
