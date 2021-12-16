@@ -19,7 +19,7 @@ date: `r format(Sys.time(), '%d %B, %Y')`
 
 The following data is collected from The City of New York's Open Data hub for the purpose of analysing and understanding the possible factors that impact the likelihood of eviction. 
 
-To perform these analysis, appropriate data processing and analysis methods will be utilised, with an overview report being prepared that will showcase some of the patterns that arise from our analysis. 
+Following the cleaning and processing of the data to ensure it is suitable for analysis, Point Pattern analysis will be performed to highlight where cases of eviction occur across New York city, and then highlighting any potential clusters which may arise. Following this, spatial regression analysis can be performed to specify potential spatial factors that correlate with evictaion rates, or help explain the prevalence of patterns, all of which will be detailed in an overview report
 
 To begin, we will install some packages that will be useful for our analysis
 ```{r}
@@ -31,12 +31,129 @@ library(tmaptools)
 library(tidyverse)
 library(janitor)
 library(here)
+library(spatstat)
 ```
 
 From there, we'll load in our datafiles, a shapefile of New York and eviction data
 ```{r}
 # load in the data 
-NYC <- read_sf(here::here("Community Districts", "geo_export_e06d52f8-300a-4a76-9d41-23cdb61499cb.shp"))
-evictions <- read_csv(here::here("Evictions.csv"))
+NYC <- read_sf(here::here("Community Districts", "geo_export_e06d52f8-300a-4a76-9d41-23cdb61499cb.shp")) %>%
+  st_transform(., crs = 32118)
+evictions <- read_csv(here::here("Evictions.csv")) %>%
+  clean_names()
+
+# quickly plot map to make sure map has loaded in properly
 qtm(NYC)
+
+# Checking the CRS 
+st_crs(NYC) 
+
+# inspecting the data 
+head(evictions)
 ```
+
+Now that our data is loaded in, we will go about cleaning and filtering the data. 
+From inspecting our csv file, we can see that the csv file contains latitude and longitude data, so we can transform our eviction data into point data. Furthermore, we will be condition data focused on the year 2020
+```{r}
+# filtering for 2020
+evictions_DMY <- evictions%>%
+  separate(., executed_date, c("D", "M", "Y"), sep = "/")
+evictions2020 <- evictions_DMY[evictions_DMY$Y=="2020" & !is.na(evictions$longitude) & !is.na(evictions$latitude),]
+# transforming eviction data into point data in CRS - WGS84
+eviction_points <- st_as_sf(evictions2020, coords = c("longitude", "latitude"), crs = 4326) %>%
+  st_transform(., 32118)
+
+# removing duplicate points
+eviction_points <- distinct(eviction_points)
+
+# clip the data so that only points within New York City still persist 
+eviction_points <- eviction_points[NYC,]
+# plot our points on New York just to make sure that data has been transformed correctly 
+tm_shape(NYC) + 
+  tm_polygons(alpha = 0.6) +
+tm_shape(eviction_points) + 
+  tm_dots(col = "black")
+```
+
+Now that our data has been cleaned and filtered so that only data on evictions in 2020 is available, we can continue with our analysis. To perform our point pattern analysis, the first thing we will do is create an observation window to carry out the analysis in 
+
+```{r}
+NYCwindow <- as.owin(NYC)
+plot(NYC)
+```
+
+To continue to perform Point Pattern Analysis, the data will need to be transformed into sp so that we can create a point pattern object (ppp)
+
+```{r}
+# transforming data to sp
+eviction_points <- eviction_points %>%
+  as(., "Spatial")
+
+# creating ppp
+eviction_points.ppp <- ppp(x=eviction_points@coords[,1],
+                           y=eviction_points@coords[,2],
+                           window = NYCwindow)
+
+# plotting results
+eviction_points.ppp %>%
+  plot(., pch = 16, cex = 0.5)
+```
+
+Let's produce some Kernal Density Estimates to try and plot the density of our data 
+```{r}
+eviction_points.ppp %>%
+  density(., sigma = 500) %>%
+  plot()
+```
+From the plot, we can see that at 500m, the density estimate is prevalent in the Bronx and Manhatten 
+
+We can plot another Kernal Density Estimate at 1000m, just to see how the plots would change
+```{r}
+eviction_points.ppp %>%
+  density(., sigma = 1000) %>%
+  plot()
+```
+Next, we'll perform a Ripley's K test to see until what distance there exist clustering, and where the data is dispersed randomly
+
+```{r}
+K <- eviction_points.ppp %>%
+  Kest(., correction="border") %>%
+  plot()
+```
+From our Ripley's K, it can be observed that for evictions within the city of New York, the data remains clustered, and never randomly disperses. However, it should be noted that there is a significant drop at around 4000m. The Ripley's K test however, confirms that there is a presence of spatial clustering within our data. However, to determine the areas of interests, need to use alternative techniques, such as DBSCAN 
+```{r}
+library(raster)
+library(fpc)
+
+# check CRS of our NYC spatial polygon
+st_geometry(NYC)
+```
+
+We check the geometry of our spatial polygon as a DBSCAN requires two values, the epsilon - the radius within which clusters are searched for; and MinPts - minimum number of points needed to be considered a cluster. From our Ripley's K, we can see that largest bulge occurs at 4000m. 
+
+Can begin searching for clusters of at least size 5
+```{r}
+library(dbscan)
+
+# determining optimal epsilon distnace 
+eviction_points_df%>%
+  dbscan::kNNdistplot(., k = 5)
+# first extract points from spatial dataframe 
+eviction_points_df <- eviction_points %>%
+  coordinates(.) %>%
+  as.data.frame()
+
+# now run DBSCAN analysis 
+DB <- eviction_points_df %>%
+  fpc::dbscan(., eps = 1000, MinPts = 5)
+
+# plot the results
+plot(DB, eviction_points_df, main = "DBSCAN Output", frame = F)
+plot(NYC$geometry, add=T)
+```
+
+```{r}
+DB
+DB$cluster
+```
+
