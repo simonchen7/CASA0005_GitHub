@@ -157,3 +157,34 @@ DB
 DB$cluster
 ```
 
+Now we can add this cluster membership back into our data
+```{r}
+eviction_points_df <- eviction_points_df %>%
+  mutate(dbcluster = DB$cluster)
+```
+
+Now we're going to create some complex hull polygons
+```{r}
+comphulls <- eviction_points_df %>%
+  group_by(dbcluster) %>%
+  dplyr::mutate(hull = 1:n(),
+  hull = factor(hull, chull(coords.x1, coords.x2)))%>%
+  arrange(hull) 
+
+# filter out all zero values 
+comphulls <- comphulls %>%
+  filter(dbcluster >=1)
+
+# plot our data 
+ch_plot <- ggplot(data=eviction_points_df, 
+                 aes(coords.x1,coords.x2, colour=dbcluster, fill=dbcluster)) 
+#add the points in
+ch_plot <- ch_plot + geom_point()
+#now the convex hulls
+ch_plot <- ch_plot + geom_polygon(data = comphulls, 
+                                aes(coords.x1,coords.x2, group=dbcluster), 
+                                alpha = 0.5) 
+#now plot, setting the coordinates to scale correctly and as a black and white plot 
+#(just for the hell of it)...
+ch_plot + theme_bw() + coord_equal()
+```
